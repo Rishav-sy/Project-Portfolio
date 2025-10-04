@@ -67,3 +67,58 @@ img[src*="logo.svg"],
   vertical-align: middle;
   padding-right: 5px;
 }
+
+/* AI STYLING - i was busy debugging api calls */
+
+/* Search container */
+.search-container {
+  position: relative;
+  display: inline-block;
+}
+
+/* Search dropdown styling */
+.search-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 1000;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  margin-top: 4px;
+}
+
+/* Individual search result item */
+.search-result-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-result-item:hover {
+  background-color: #f5f5f5;
+}
+
+/* Stock name and ticker styling */
+.stock-name {
+  color: #333;
+  font-weight: 500;
+  margin-right: 8px;
+}
+
+.stock-ticker {
+  color: #666;
+  font-size: 0.9em;
+}
