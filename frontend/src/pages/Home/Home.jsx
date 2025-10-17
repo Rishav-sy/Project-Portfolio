@@ -1,81 +1,161 @@
-import React from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../../context/AuthContext";
+import api from "../../utils/api";
+import "./Home.css";
 
-// Helper function to parse currency strings (e.g., "₹ 1,50,000") into numbers
-const parseCurrency = (value) => {
-  if (typeof value !== 'string') return 0;
-  // Removes currency symbols, commas, and whitespace, then converts to a number
-  return Number(value.replace(/[^0-9.-]+/g, "")) || 0;
-};
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-const StatCard = ({ title, stockValue, realEstateValue }) => {
-  const stockNum = parseCurrency(stockValue);
-  const realEstateNum = parseCurrency(realEstateValue);
-  const total = stockNum + realEstateNum;
+const Home = () => {
+  const { user } = useAuth();
+  const [portfolio, setPortfolio] = useState({
+    totalInvested: 0,
+    stocksInvested: 0,
+    realEstateInvested: 0,
+    currentValue: 0,
+    stocksValue: 0,
+    realEstateValue: 0,
+    totalPnL: 0,
+    stocksPnL: 0,
+    realEstatePnL: 0
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchPortfolioData();
+  }, []);
+
+  const fetchPortfolioData = async () => {
+    try {
+      const response = await api.get('/holdings');
+      const holdings = response.data;
+      
+      if (holdings.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      // Get live prices for all holdings
+      const tickers = holdings.map(h => h.ticker);
+      const pricesPromises = tickers.map(ticker => 
+        fetch(`${API_BASE}/stocks/price/${ticker}`)
+          .then(r => r.json())
+          .catch(() => null)
+      );
+      
+      const prices = await Promise.all(pricesPromises);
+      
+      // Calculate portfolio values
+      let totalInvested = 0;
+      let currentValue = 0;
+      
+      holdings.forEach((holding, index) => {
+        const invested = parseFloat(holding.invested);
+        totalInvested += invested;
+        
+        const livePrice = prices[index];
+        const currentPrice = livePrice?.current_price || parseFloat(holding.avgPrice);
+        const value = currentPrice * holding.quantity;
+        currentValue += value;
+      });
+      
+      const totalPnL = currentValue - totalInvested;
+      
+      setPortfolio({
+        totalInvested,
+        stocksInvested: totalInvested,
+        realEstateInvested: 0,
+        currentValue,
+        stocksValue: currentValue,
+        realEstateValue: 0,
+        totalPnL,
+        stocksPnL: totalPnL,
+        realEstatePnL: 0
+      });
+    } catch (error) {
+      console.error("Error fetching portfolio:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="home-container"><div>Loading...</div></div>;
+  }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold text-center">{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2 text-lg">
-        {/* Total section */}
-        <div className="flex justify-between items-center font-bold">
-          <span>Total</span>
-          <span>{total.toLocaleString('en-IN')}</span>
+    <div className="home-container">
+      <div className="home-hero">
+        <h1 className="home-title">Welcome, {user?.full_name || user?.email || 'User'}</h1>
+        <p className="home-subtitle">Here's a snapshot of your investment portfolio.</p>
+      </div>
+
+      <div className="stats-grid">
+        <div className="stat-card">
+          <h2 className="stat-title">Total Invested</h2>
+          <div className="stat-content">
+            <div className="stat-row">
+              <span>Total</span>
+              <span className="stat-value">
+                ₹{portfolio.totalInvested.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="stat-row">
+              <span>Stocks</span>
+              <span>₹{portfolio.stocksInvested.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+            </div>
+            <div className="stat-row">
+              <span>Real Estate</span>
+              <span>₹{portfolio.realEstateInvested.toLocaleString('en-IN')}</span>
+            </div>
+          </div>
         </div>
 
-        {/* Divider */}
-        <hr className="my-1 border border-t-2" />
+        <div className="stat-card">
+          <h2 className="stat-title">Current Value</h2>
+          <div className="stat-content">
+            <div className="stat-row">
+              <span>Total</span>
+              <span className="stat-value">
+                ₹{portfolio.currentValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </span>
+            </div>
+            <div className="stat-row">
+              <span>Stocks</span>
+              <span>₹{portfolio.stocksValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+            </div>
+            <div className="stat-row">
+              <span>Real Estate</span>
+              <span>₹{portfolio.realEstateValue.toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+        </div>
 
-        {/* Individual Sections */}
-        <div className="flex justify-between items-center text-muted-foreground">
-          <span>Stocks</span>
-          <span>{stockNum.toLocaleString('en-IN')}</span>
+        <div className="stat-card">
+          <h2 className="stat-title">P & L</h2>
+          <div className="stat-content">
+            <div className="stat-row">
+              <span>Total</span>
+              <span className={`stat-profit ${portfolio.totalPnL >= 0 ? 'text-green' : 'text-red'}`}>
+                ₹{portfolio.totalPnL.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </span>
+            </div>
+            <div className="stat-row">
+              <span>Stocks</span>
+              <span className={`stat-profit ${portfolio.stocksPnL >= 0 ? 'text-green' : 'text-red'}`}>
+                ₹{portfolio.stocksPnL.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </span>
+            </div>
+            <div className="stat-row">
+              <span>Real Estate</span>
+              <span className="stat-profit">
+                ₹{portfolio.realEstatePnL.toLocaleString('en-IN')}
+              </span>
+            </div>
+          </div>
         </div>
-        <div className="flex justify-between items-center text-muted-foreground">
-          <span>Real Estate</span>
-          <span>{realEstateNum.toLocaleString('en-IN')}</span>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 
-const Home = () => {
-  const portfolioData = {
-    invested: { stocks: "₹ 1,50,000", realEstate: "₹ 5,25,000" },
-    current: { stocks: "₹ 1,75,000", realEstate: "₹ 5,80,000" },
-    pnl: { stocks: "₹ 25,000", realEstate: "₹ 55,000" },
-  };
-
-  return (
-    <div className="container mx-auto px-4 py-8 md:px-6 lg:py-12">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Welcome, User</h1>
-        <p className="text-muted-foreground mt-2">Here's a snapshot of your investment portfolio.</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <StatCard 
-          title="Total Invested" 
-          stockValue={portfolioData.invested.stocks}
-          realEstateValue={portfolioData.invested.realEstate}
-        />
-        <StatCard 
-          title="Current Value" 
-          stockValue={portfolioData.current.stocks}
-          realEstateValue={portfolioData.current.realEstate}
-        />
-        <StatCard 
-          title="P & L" 
-          stockValue={portfolioData.pnl.stocks}
-          realEstateValue={portfolioData.pnl.realEstate}
-        />
-      </div>
-    </div>
-  )
-}
-
-export default Home
-
+export default Home;

@@ -1,53 +1,72 @@
-import React from 'react'
-import { Link } from 'react-router-dom'
+import React from "react";
+import { Link, useLocation } from "react-router-dom";
 import {
   NavigationMenu,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-  navigationMenuTriggerStyle,
-} from "@/components/ui/navigation-menu"
-import { Button } from "@/components/ui/button"
-import { Building2 } from "lucide-react"
-import { ModeToggle } from "../mode-toggle"
+} from "@/components/ui/navigation-menu";
+import { Button } from "@/components/ui/button";
+import { ModeToggle } from "../mode-toggle";
+import { useAuth } from "../../context/AuthContext";
+import "./Navbar.css";
 
-export function Navbar() {
+const Navbar = () => {
+  const location = useLocation();
+  const { user, logout } = useAuth();
+
+  const isActive = (path) => location.pathname === path;
+
   return (
-    <header className="px-4 py-10 lg:px-6 h-14 flex items-center justify-between">
-      <div className="flex items-center gap-8"> 
-        <Link to="/" className="flex items-center justify-center">
-          <Building2 className="h-6 w-6" />
-          <span className="sr-only">Stocker</span>
-          <span className="ml-5 font-bold text-lg">Stocker</span>
+    <nav className="navbar">
+      <div className="navbar-container">
+        <Link to="/" className="navbar-brand">
+          <span className="brand-icon">📊</span>
+          <span className="brand-text">Stocker</span>
         </Link>
-        <nav>
-          <NavigationMenu>
-            <NavigationMenuList>
-              <NavigationMenuItem>
-                <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-                  <Link to="/">Home</Link>
-                </NavigationMenuLink>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-                  <Link to="/stocks">Stocks</Link>
-                </NavigationMenuLink>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-                  <Link to="/realestate">Real Estate</Link>
-                </NavigationMenuLink>
-              </NavigationMenuItem>
-            </NavigationMenuList>
-          </NavigationMenu>
-        </nav>
-      </div>
-      <div className="flex items-center gap-4">
-        <ModeToggle />
-        <Button className="px-8 cursor-pointer" variant="default">Login</Button>
-      </div>
-    </header>
-  )
-}
 
-export default Navbar
+        <NavigationMenu>
+          <NavigationMenuList>
+            <NavigationMenuItem>
+              <Link to="/">
+                <NavigationMenuLink className={`nav-link ${isActive("/") ? "active" : ""}`}>
+                  Home
+                </NavigationMenuLink>
+              </Link>
+            </NavigationMenuItem>
+
+            <NavigationMenuItem>
+              <Link to="/stocks">
+                <NavigationMenuLink className={`nav-link ${isActive("/stocks") ? "active" : ""}`}>
+                  Stocks
+                </NavigationMenuLink>
+              </Link>
+            </NavigationMenuItem>
+
+            <NavigationMenuItem>
+              <Link to="/real-estate">
+                <NavigationMenuLink className={`nav-link ${isActive("/real-estate") ? "active" : ""}`}>
+                  Real Estate
+                </NavigationMenuLink>
+              </Link>
+            </NavigationMenuItem>
+          </NavigationMenuList>
+        </NavigationMenu>
+
+        <div className="navbar-actions">
+          <ModeToggle />
+          {user && (
+            <>
+              <span className="user-name">{user.full_name || user.email}</span>
+              <Button onClick={logout} variant="destructive" size="sm">
+                Logout
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    </nav>
+  );
+};
+
+export default Navbar;
