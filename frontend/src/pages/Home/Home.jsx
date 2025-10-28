@@ -1,158 +1,139 @@
-import React, { useState, useEffect } from "react";
-import { useAuth } from "../../context/AuthContext";
-import api from "../../utils/api";
-import "./Home.css";
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import api from '../../utils/api';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+const StatCard = ({ title, stockValue, realEstateValue }) => {
+  const total = stockValue + realEstateValue;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-xl font-semibold text-center">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 text-lg">
+        <div className="flex justify-between items-center font-bold">
+          <span>Total</span>
+          <span>₹{total.toLocaleString('en-IN')}</span>
+        </div>
+        <hr className="my-1 border border-t-2" />
+        <div className="flex justify-between items-center text-muted-foreground">
+          <span>Stocks</span>
+          <span>₹{stockValue.toLocaleString('en-IN')}</span>
+        </div>
+        <div className="flex justify-between items-center text-muted-foreground">
+          <span>Real Estate</span>
+          <span>₹{realEstateValue.toLocaleString('en-IN')}</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 const Home = () => {
   const { user } = useAuth();
-  const [portfolio, setPortfolio] = useState({
-    totalInvested: 0,
-    stocksInvested: 0,
-    realEstateInvested: 0,
-    currentValue: 0,
-    stocksValue: 0,
-    realEstateValue: 0,
-    totalPnL: 0,
-    stocksPnL: 0,
-    realEstatePnL: 0
-  });
+  const [holdings, setHoldings] = useState([]);
+  const [livePrices, setLivePrices] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchPortfolioData();
+    fetchHoldings();
   }, []);
 
-  const fetchPortfolioData = async () => {
+  const fetchHoldings = async () => {
     try {
       const response = await api.get('/holdings');
-      const holdings = response.data;
-      
-      if (holdings.length === 0) {
-        setLoading(false);
-        return;
-      }
+      const holdingsData = response.data;
+      setHoldings(holdingsData);
 
-      // Get live prices for all holdings
-      const tickers = holdings.map(h => h.ticker);
-      const pricesPromises = tickers.map(ticker => 
-        fetch(`${API_BASE}/stocks/price/${ticker}`)
-          .then(r => r.json())
-          .catch(() => null)
+      // Fetch live prices for all holdings
+      const pricePromises = holdingsData.map(holding =>
+        fetch(`${API_BASE}/stocks/price/${holding.ticker}`)
+          .then(res => res.json())
+          .then(data => ({ ticker: holding.ticker, price: data }))
+          .catch(() => ({ ticker: holding.ticker, price: null }))
       );
-      
-      const prices = await Promise.all(pricesPromises);
-      
-      // Calculate portfolio values
-      let totalInvested = 0;
-      let currentValue = 0;
-      
-      holdings.forEach((holding, index) => {
-        const invested = parseFloat(holding.invested);
-        totalInvested += invested;
-        
-        const livePrice = prices[index];
-        const currentPrice = livePrice?.current_price || parseFloat(holding.avgPrice);
-        const value = currentPrice * holding.quantity;
-        currentValue += value;
+
+      const prices = await Promise.all(pricePromises);
+      const pricesMap = {};
+      prices.forEach(({ ticker, price }) => {
+        pricesMap[ticker] = price;
       });
-      
-      const totalPnL = currentValue - totalInvested;
-      
-      setPortfolio({
-        totalInvested,
-        stocksInvested: totalInvested,
-        realEstateInvested: 0,
-        currentValue,
-        stocksValue: currentValue,
-        realEstateValue: 0,
-        totalPnL,
-        stocksPnL: totalPnL,
-        realEstatePnL: 0
-      });
+      setLivePrices(pricesMap);
     } catch (error) {
-      console.error("Error fetching portfolio:", error);
+      console.error('Error fetching holdings:', error);
     } finally {
       setLoading(false);
     }
   };
 
+  const calculatePortfolio = () => {
+    let totalInvested = 0;
+    let totalCurrent = 0;
+
+    holdings.forEach(holding => {
+      const invested = parseFloat(holding.invested);
+      const livePrice = livePrices[holding.ticker];
+      const currentPrice = livePrice?.current_price || parseFloat(holding.avgPrice);
+      const currentValue = currentPrice * holding.quantity;
+
+      totalInvested += invested;
+      totalCurrent += currentValue;
+    });
+
+    const totalPnL = totalCurrent - totalInvested;
+
+    return {
+      invested: totalInvested,
+      current: totalCurrent,
+      pnl: totalPnL
+    };
+  };
+
+  const portfolio = calculatePortfolio();
+
+  // Hardcoded real estate for now
+  const realEstate = {
+    invested: 0,
+    current: 0,
+    pnl: 0
+  };
+
   if (loading) {
-    return <div className="home-container"><div>Loading...</div></div>;
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">Loading portfolio...</div>
+      </div>
+    );
   }
 
   return (
-    <div className="home-container">
-      <div className="home-hero">
-        <h1 className="home-title">Welcome, {user?.full_name || user?.email || 'User'}</h1>
-        <p className="home-subtitle">Here's a snapshot of your investment portfolio.</p>
+    <div className="container mx-auto px-4 py-8 md:px-6 lg:py-12">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
+          Welcome, {user?.name || 'aryan'}
+        </h1>
+        <p className="text-muted-foreground mt-2">Here's a snapshot of your investment portfolio.</p>
       </div>
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <h2 className="stat-title">Total Invested</h2>
-          <div className="stat-content">
-            <div className="stat-row">
-              <span>Total</span>
-              <span className="stat-value">
-                ₹{portfolio.totalInvested.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-              </span>
-            </div>
-            <div className="stat-row">
-              <span>Stocks</span>
-              <span>₹{portfolio.stocksInvested.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-            </div>
-            <div className="stat-row">
-              <span>Real Estate</span>
-              <span>₹{portfolio.realEstateInvested.toLocaleString('en-IN')}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <h2 className="stat-title">Current Value</h2>
-          <div className="stat-content">
-            <div className="stat-row">
-              <span>Total</span>
-              <span className="stat-value">
-                ₹{portfolio.currentValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-              </span>
-            </div>
-            <div className="stat-row">
-              <span>Stocks</span>
-              <span>₹{portfolio.stocksValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-            </div>
-            <div className="stat-row">
-              <span>Real Estate</span>
-              <span>₹{portfolio.realEstateValue.toLocaleString('en-IN')}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <h2 className="stat-title">P & L</h2>
-          <div className="stat-content">
-            <div className="stat-row">
-              <span>Total</span>
-              <span className={`stat-profit ${portfolio.totalPnL >= 0 ? 'text-green' : 'text-red'}`}>
-                ₹{portfolio.totalPnL.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-              </span>
-            </div>
-            <div className="stat-row">
-              <span>Stocks</span>
-              <span className={`stat-profit ${portfolio.stocksPnL >= 0 ? 'text-green' : 'text-red'}`}>
-                ₹{portfolio.stocksPnL.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-              </span>
-            </div>
-            <div className="stat-row">
-              <span>Real Estate</span>
-              <span className="stat-profit">
-                ₹{portfolio.realEstatePnL.toLocaleString('en-IN')}
-              </span>
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <StatCard 
+          title="Total Invested" 
+          stockValue={portfolio.invested}
+          realEstateValue={realEstate.invested}
+        />
+        <StatCard 
+          title="Current Value" 
+          stockValue={portfolio.current}
+          realEstateValue={realEstate.current}
+        />
+        <StatCard 
+          title="P & L" 
+          stockValue={portfolio.pnl}
+          realEstateValue={realEstate.pnl}
+        />
       </div>
     </div>
   );

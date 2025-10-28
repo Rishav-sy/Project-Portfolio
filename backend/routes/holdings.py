@@ -1,5 +1,4 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
 import psycopg2
 from config.config import Config
 
@@ -11,17 +10,16 @@ def get_db_connection():
         password=Config.DB_PASSWORD, host=Config.DB_HOST, port=Config.DB_PORT
     )
 
-@holdings_bp.route('', methods=['GET'])
-
+@holdings_bp.route('/api/holdings', methods=['GET'])
 def get_holdings():
-    user_id = 3
-    print(f"✅ GET Holdings for user: {user_id}")
+    user_id = 3  # Dev mode
     
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT h.id, s.stock_name, s.ticker_symbol, h.quantity, h.avg_price, h.invested_amount
-        FROM holdings h JOIN stocks s ON h.stock_id = s.id
+        SELECT h.id, s.stock_name, h.ticker_symbol, h.quantity, h.avg_price, h.invested
+        FROM holdings h 
+        JOIN stocks s ON h.ticker_symbol = s.ticker_symbol
         WHERE h.user_id = %s
     """, (user_id,))
     
@@ -34,58 +32,100 @@ def get_holdings():
         for r in results
     ])
 
-@holdings_bp.route('', methods=['POST'])
-
+@holdings_bp.route('/api/holdings', methods=['POST'])
 def add_holding():
-    user_id = 3
+    user_id = 3  # Dev mode
     data = request.json
-    print(f"✅ ADD Holding for user: {user_id}")
+    ticker = data.get('ticker')
+    quantity = data.get('quantity')
+    invested = data.get('invested')
+    
+    if not all([ticker, quantity, invested]):
+        return jsonify({'error': 'Missing fields'}), 400
+    
+    avg_price = float(invested) / float(quantity)
     
     conn = get_db_connection()
     cur = conn.cursor()
     
-    cur.execute(
-        "INSERT INTO holdings (user_id, stock_id, quantity, avg_price, invested_amount) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-        (user_id, data['stock_id'], data['quantity'], data['avg_price'], data['invested_amount'])
-    )
-    holding_id = cur.fetchone()[0]
+    # Check if already exists
+    cur.execute("""
+        SELECT id, quantity, invested 
+        FROM holdings 
+        WHERE user_id = %s AND ticker_symbol = %s
+    """, (user_id, ticker))
+    
+    existing = cur.fetchone()
+    
+    if existing:
+        cur.close()
+        conn.close()
+        return jsonify({
+            'error': 'Stock already in portfolio',
+            'action': 'edit',
+            'holding_id': existing[0]
+        }), 409
+    
+    # Insert new holding
+    cur.execute("""
+        INSERT INTO holdings (user_id, ticker_symbol, quantity, avg_price, invested, purchase_date)
+        VALUES (%s, %s, %s, %s, %s, CURRENT_DATE) 
+        RETURNING id
+    """, (user_id, ticker, quantity, avg_price, invested))
+    
+    new_id = cur.fetchone()[0]
     conn.commit()
     cur.close()
     conn.close()
     
-    return jsonify({'id': holding_id}), 201
+    return jsonify({'id': new_id, 'message': 'Added successfully'}), 201
 
-@holdings_bp.route('/<int:holding_id>', methods=['PUT'])
-
+@holdings_bp.route('/api/holdings/<int:holding_id>', methods=['PUT'])
 def update_holding(holding_id):
     user_id = 3
     data = request.json
-    print(f"✅ UPDATE Holding {holding_id} for user: {user_id}")
+    quantity = data.get('quantity')
+    invested = data.get('invested')
+    
+    if not all([quantity, invested]):
+        return jsonify({'error': 'Missing fields'}), 400
+    
+    avg_price = float(invested) / float(quantity)
     
     conn = get_db_connection()
     cur = conn.cursor()
+    cur.execute("""
+        UPDATE holdings 
+        SET quantity = %s, avg_price = %s, invested = %s
+        WHERE id = %s AND user_id = %s
+    """, (quantity, avg_price, invested, holding_id, user_id))
     
-    cur.execute(
-        "UPDATE holdings SET quantity = %s, avg_price = %s, invested_amount = %s WHERE id = %s AND user_id = %s",
-        (data['quantity'], data['avg_price'], data['invested_amount'], holding_id, user_id)
-    )
+    if cur.rowcount == 0:
+        cur.close()
+        conn.close()
+        return jsonify({'error': 'Not found'}), 404
+    
     conn.commit()
     cur.close()
     conn.close()
     
-    return jsonify({'message': 'updated'})
+    return jsonify({'message': 'Updated successfully'})
 
-@holdings_bp.route('/<int:holding_id>', methods=['DELETE'])
-
+@holdings_bp.route('/api/holdings/<int:holding_id>', methods=['DELETE'])
 def delete_holding(holding_id):
     user_id = 3
-    print(f"✅ DELETE Holding {holding_id} for user: {user_id}")
     
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("DELETE FROM holdings WHERE id = %s AND user_id = %s", (holding_id, user_id))
+    
+    if cur.rowcount == 0:
+        cur.close()
+        conn.close()
+        return jsonify({'error': 'Not found'}), 404
+    
     conn.commit()
     cur.close()
     conn.close()
     
-    return jsonify({'message': 'deleted'})
+    return jsonify({'message': 'Deleted successfully'})

@@ -271,26 +271,18 @@ const WatchlistCard = ({ stock, onDelete }) => {
 const SearchResultItem = ({ stock, onSelect }) => {
   const [livePrice, setLivePrice] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [chartData, setChartData] = useState([]);
 
   useEffect(() => {
-    fetchPriceAndHistory();
+    fetchPrice();
   }, [stock.ticker]);
 
-  const fetchPriceAndHistory = async () => {
+  const fetchPrice = async () => {
     try {
       const priceResponse = await fetch(`${API_BASE}/stocks/price/${stock.ticker}`);
       const priceData = await priceResponse.json();
       
-      const historyResponse = await fetch(`${API_BASE}/stocks/history/${stock.ticker}`);
-      const historyData = await historyResponse.json();
-      
       if (!priceData.error) {
         setLivePrice(priceData);
-      }
-      
-      if (!historyData.error && historyData.prices) {
-        setChartData(historyData.prices.map(price => ({ value: price })));
       }
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -315,27 +307,6 @@ const SearchResultItem = ({ stock, onSelect }) => {
         <div className="text-sm text-muted-foreground">Loading...</div>
       ) : livePrice ? (
         <div className="flex items-center gap-3">
-          {chartData.length > 0 && (
-            <div className="w-20 h-12">
-              <AreaChart width={80} height={48} data={chartData} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
-                <defs>
-                  <linearGradient id={`mini-gradient-${stock.id}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={priceChangePercent >= 0 ? "#22c55e" : "#ef4444"} stopOpacity={0.4} />
-                    <stop offset="100%" stopColor={priceChangePercent >= 0 ? "#22c55e" : "#ef4444"} stopOpacity={0.05} />
-                  </linearGradient>
-                </defs>
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  stroke={priceChangePercent >= 0 ? "#22c55e" : "#ef4444"}
-                  strokeWidth={1.5}
-                  fill={`url(#mini-gradient-${stock.id})`}
-                  isAnimationActive={false}
-                />
-              </AreaChart>
-            </div>
-          )}
-          
           <div className="text-right">
             <div className="font-semibold text-base">₹ {livePrice.current_price}</div>
             <div className={`text-xs flex items-center gap-1 ${priceChangePercent >= 0 ? "text-green-500" : "text-red-500"}`}>
@@ -351,6 +322,7 @@ const SearchResultItem = ({ stock, onSelect }) => {
     </div>
   );
 };
+
 
 const Stocks = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -418,35 +390,35 @@ const Stocks = () => {
   };
 
   const handleAddHolding = async (data) => {
-    try {
-      await api.post('/holdings', {
-        stock_id: selectedStock.id,
-        quantity: data.quantity,
-        avg_price: data.avg_price,
-        invested_amount: data.invested,
-      });
-      fetchHoldings();
-      setShowAddModal(false);
-    } catch (error) {
-      console.error("Error adding holding:", error);
-      alert("Failed to add stock. Please try again.");
-    }
-  };
+  try {
+    await api.post('/holdings', {
+      ticker: selectedStock.ticker,  // Changed from stock_id
+      quantity: data.quantity,
+      invested: data.invested  // Changed from invested_amount
+    });
+    fetchHoldings();
+    setShowAddModal(false);
+  } catch (error) {
+    console.error("Error adding holding:", error);
+    alert("Failed to add stock. Please try again.");
+  }
+};
+
 
   const handleEditHolding = async (data) => {
-    try {
-      await api.put(`/holdings/${editingHolding.id}`, {
-        quantity: data.quantity,
-        avg_price: data.avg_price,
-        invested_amount: data.invested,
-      });
-      fetchHoldings();
-      setShowEditModal(false);
-    } catch (error) {
-      console.error("Error updating holding:", error);
-      alert("Failed to update. Please try again.");
-    }
-  };
+  try {
+    await api.put(`/holdings/${editingHolding.id}`, {
+      quantity: data.quantity,
+      invested: data.invested  // Changed from invested_amount
+    });
+    fetchHoldings();
+    setShowEditModal(false);
+  } catch (error) {
+    console.error("Error updating holding:", error);
+    alert("Failed to update. Please try again.");
+  }
+};
+
 
   const handleDeleteConfirm = async () => {
     try {

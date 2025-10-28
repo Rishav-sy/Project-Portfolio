@@ -1,72 +1,73 @@
-import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import React from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   NavigationMenu,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-} from "@/components/ui/navigation-menu";
-import { Button } from "@/components/ui/button";
-import { ModeToggle } from "../mode-toggle";
-import { useAuth } from "../../context/AuthContext";
-import "./Navbar.css";
+  navigationMenuTriggerStyle,
+} from "@/components/ui/navigation-menu"
+import { Button } from "@/components/ui/button"
+import { Building2 } from "lucide-react"
+import { ModeToggle } from "../mode-toggle"
+import { useAuth } from '../../context/AuthContext'
 
-const Navbar = () => {
-  const location = useLocation();
-  const { user, logout } = useAuth();
+export function Navbar() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
 
-  const isActive = (path) => location.pathname === path;
+  const handleLogout = () => {
+    logout()
+    navigate('/')
+  }
 
   return (
-    <nav className="navbar">
-      <div className="navbar-container">
-        <Link to="/" className="navbar-brand">
-          <span className="brand-icon">📊</span>
-          <span className="brand-text">Stocker</span>
+    <header className="px-4 py-10 lg:px-6 h-14 flex items-center justify-between">
+      <div className="flex items-center gap-8"> 
+        <Link to="/" className="flex items-center justify-center">
+          <Building2 className="h-6 w-6" />
+          <span className="sr-only">Stocker</span>
+          <span className="ml-5 font-bold text-lg">Stocker</span>
         </Link>
-
-        <NavigationMenu>
-          <NavigationMenuList>
-            <NavigationMenuItem>
-              <Link to="/">
-                <NavigationMenuLink className={`nav-link ${isActive("/") ? "active" : ""}`}>
-                  Home
+        <nav>
+          <NavigationMenu>
+            <NavigationMenuList>
+              <NavigationMenuItem>
+                <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
+                  <Link to="/">Home</Link>
                 </NavigationMenuLink>
-              </Link>
-            </NavigationMenuItem>
-
-            <NavigationMenuItem>
-              <Link to="/stocks">
-                <NavigationMenuLink className={`nav-link ${isActive("/stocks") ? "active" : ""}`}>
-                  Stocks
+              </NavigationMenuItem>
+              <NavigationMenuItem>
+                <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
+                  <Link to="/stocks">Stocks</Link>
                 </NavigationMenuLink>
-              </Link>
-            </NavigationMenuItem>
-
-            <NavigationMenuItem>
-              <Link to="/real-estate">
-                <NavigationMenuLink className={`nav-link ${isActive("/real-estate") ? "active" : ""}`}>
-                  Real Estate
+              </NavigationMenuItem>
+              <NavigationMenuItem>
+                <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
+                  <Link to="/realestate">Real Estate</Link>
                 </NavigationMenuLink>
-              </Link>
-            </NavigationMenuItem>
-          </NavigationMenuList>
-        </NavigationMenu>
-
-        <div className="navbar-actions">
-          <ModeToggle />
-          {user && (
-            <>
-              <span className="user-name">{user.full_name || user.email}</span>
-              <Button onClick={logout} variant="destructive" size="sm">
-                Logout
-              </Button>
-            </>
-          )}
-        </div>
+              </NavigationMenuItem>
+            </NavigationMenuList>
+          </NavigationMenu>
+        </nav>
       </div>
-    </nav>
-  );
-};
+      <div className="flex items-center gap-4">
+        <ModeToggle />
+        {user ? (
+          <>
+            <span className="text-sm">{user.name}</span>
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              Logout
+            </Button>
+          </>
+        ) : (
+          <Link to="/login">
+            <Button className="px-8" variant="default">Login</Button>
+          </Link>
+        )}
+      </div>
+    </header>
+  )
+}
 
-export default Navbar;
+export default Navbar

@@ -1,51 +1,38 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { authUtils } from '../utils/authUtils';
-import api from '../utils/api';
+import { createContext, useContext, useState, useEffect } from 'react'
 
-const AuthContext = createContext(null);
-
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const initAuth = async () => {
-      const token = authUtils.getToken();
-      const savedUser = authUtils.getUser();
-      
-      console.log('Init auth - Token:', token, 'User:', savedUser);
-      
-      if (token && savedUser) {
-        setUser(savedUser);
-      }
-      setLoading(false);
-    };
-    
-    initAuth();
-  }, []);
-
-  const login = (token, userData) => {
-    console.log('Login called with:', token, userData);
-    authUtils.setToken(token);
-    authUtils.setUser(userData);
-    setUser(userData);
-  };
-
-  const logout = () => {
-    authUtils.logout();
-    setUser(null);
-    window.location.href = '/auth';
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, login, logout, loading, isAuthenticated: !!user }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
+const AuthContext = createContext(null)
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
-  return context;
-};
+  const context = useContext(AuthContext)
+  if (!context) throw new Error('useAuth must be used within AuthProvider')
+  return context
+}
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null)
+
+  useEffect(() => {
+    // Check localStorage for saved user
+    const savedUser = localStorage.getItem('user')
+    if (savedUser) {
+      setUser(JSON.parse(savedUser))
+    }
+  }, [])
+
+  const login = (email) => {
+    const userData = { email, name: email.split('@')[0] }
+    localStorage.setItem('user', JSON.stringify(userData))
+    setUser(userData)
+  }
+
+  const logout = () => {
+    localStorage.removeItem('user')
+    setUser(null)
+  }
+
+  return (
+    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+      {children}
+    </AuthContext.Provider>
+  )
+}

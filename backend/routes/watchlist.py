@@ -11,8 +11,7 @@ def get_db_connection():
         password=Config.DB_PASSWORD, host=Config.DB_HOST, port=Config.DB_PORT
     )
 
-@watchlist_bp.route('', methods=['GET'])
-
+@watchlist_bp.route('/api/watchlist', methods=['GET'])
 def get_watchlist():
     user_id = 3
     print(f"✅ GET Watchlist for user: {user_id}")
@@ -31,8 +30,7 @@ def get_watchlist():
     
     return jsonify([{'id': r[0], 'name': r[1], 'ticker': r[2]} for r in results])
 
-@watchlist_bp.route('', methods=['POST'])
-
+@watchlist_bp.route('/api/watchlist', methods=['POST'])
 def add_to_watchlist():
     user_id = 3
     data = request.json
@@ -54,8 +52,7 @@ def add_to_watchlist():
     
     return jsonify({'id': watchlist_id}), 201
 
-@watchlist_bp.route('/<int:watchlist_id>', methods=['DELETE'])
-
+@watchlist_bp.route('/api/watchlist/<int:watchlist_id>', methods=['DELETE'])
 def remove_from_watchlist(watchlist_id):
     user_id = 3
     
