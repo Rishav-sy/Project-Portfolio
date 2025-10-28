@@ -1,6 +1,9 @@
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
 import psycopg2
 from config.config import Config
+from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
+from jwt.exceptions import PyJWTError
 
 holdings_bp = Blueprint('holdings', __name__)
 
@@ -10,9 +13,31 @@ def get_db_connection():
         password=Config.DB_PASSWORD, host=Config.DB_HOST, port=Config.DB_PORT
     )
 
+def get_user_id():
+    """Get user ID from JWT with guest fallback"""
+    try:
+        # Verify JWT token exists and is valid
+        verify_jwt_in_request(optional=True)
+        user_id = get_jwt_identity()
+        
+        if user_id:
+            print(f"🔐 JWT User ID: {user_id}")
+            return int(user_id)
+    except Exception as e:
+        print(f"❌ JWT Error: {e}")
+    
+    # GUEST MODE (default when no JWT)
+    print("👤 Using Guest user (id=1)")
+    return 1
+
+
+
 @holdings_bp.route('/api/holdings', methods=['GET'])
 def get_holdings():
-    user_id = 3  # Dev mode
+    user_id = get_user_id()
+    
+    if not user_id:
+        return jsonify({'error': 'Not authenticated'}), 401
     
     conn = get_db_connection()
     cur = conn.cursor()
@@ -34,7 +59,11 @@ def get_holdings():
 
 @holdings_bp.route('/api/holdings', methods=['POST'])
 def add_holding():
-    user_id = 3  # Dev mode
+    user_id = get_user_id()
+    
+    if not user_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
     data = request.json
     ticker = data.get('ticker')
     quantity = data.get('quantity')
@@ -48,7 +77,6 @@ def add_holding():
     conn = get_db_connection()
     cur = conn.cursor()
     
-    # Check if already exists
     cur.execute("""
         SELECT id, quantity, invested 
         FROM holdings 
@@ -66,7 +94,6 @@ def add_holding():
             'holding_id': existing[0]
         }), 409
     
-    # Insert new holding
     cur.execute("""
         INSERT INTO holdings (user_id, ticker_symbol, quantity, avg_price, invested, purchase_date)
         VALUES (%s, %s, %s, %s, %s, CURRENT_DATE) 
@@ -82,7 +109,11 @@ def add_holding():
 
 @holdings_bp.route('/api/holdings/<int:holding_id>', methods=['PUT'])
 def update_holding(holding_id):
-    user_id = 3
+    user_id = get_user_id()
+    
+    if not user_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
     data = request.json
     quantity = data.get('quantity')
     invested = data.get('invested')
@@ -113,7 +144,10 @@ def update_holding(holding_id):
 
 @holdings_bp.route('/api/holdings/<int:holding_id>', methods=['DELETE'])
 def delete_holding(holding_id):
-    user_id = 3
+    user_id = get_user_id()
+    
+    if not user_id:
+        return jsonify({'error': 'Not authenticated'}), 401
     
     conn = get_db_connection()
     cur = conn.cursor()

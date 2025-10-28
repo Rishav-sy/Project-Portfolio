@@ -13,12 +13,16 @@ import { ModeToggle } from "../mode-toggle"
 import { useAuth } from '../../context/AuthContext'
 
 export function Navbar() {
-  const { user, logout } = useAuth()
+  const { user, displayName, logout } = useAuth()
   const navigate = useNavigate()
 
   const handleLogout = () => {
     logout()
+    // Clear localStorage to ensure clean logout
+    localStorage.clear()
     navigate('/')
+    // Reload to reset guest state
+    window.location.reload()
   }
 
   return (
@@ -55,15 +59,18 @@ export function Navbar() {
         <ModeToggle />
         {user ? (
           <>
-            <span className="text-sm">{user.name}</span>
+            <span className="text-sm font-medium">{displayName}</span>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               Logout
             </Button>
           </>
         ) : (
-          <Link to="/login">
-            <Button className="px-8" variant="default">Login</Button>
-          </Link>
+          <>
+            <span className="text-sm text-muted-foreground">Guest</span>
+            <Link to="/login">
+              <Button className="px-8" variant="default">Login</Button>
+            </Link>
+          </>
         )}
       </div>
     </header>
